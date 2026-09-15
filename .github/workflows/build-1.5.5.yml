@@ -23,11 +23,11 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Build Protoduck
-        run: cargo build --release
-
-      - name: Configure SQL test runner
+      - name: Configure DuckDB 1.5.5 test environment
         run: sed -i 's/TARGET_DUCKDB_VERSION=v1.5.4/TARGET_DUCKDB_VERSION=v1.5.5/' Makefile && DUCKDB_TEST_VERSION=1.5.5 make configure
+
+      - name: Build Protoduck release extension
+        run: make release
 
       - name: Run SQL tests
         run: make test_release
