@@ -71,15 +71,15 @@ SELECT proto_decode('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person') LIKE '%"age":%
 true
 
 # JSON -> protobuf returns the protobuf wire bytes as a DuckDB BLOB.
-query T
+query I
 SELECT proto_to_json(
     proto_from_json(
         '{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}',
         'demo.Person'
     ), 'demo.Person'
-) = '{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}';
+);
 ----
-true
+{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}
 
 query T
 SELECT json_to_proto('{"name":"Bob","age":41}', 'demo.Person') IS NOT NULL;
