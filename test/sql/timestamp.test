@@ -1,0 +1,57 @@
+# name: test/sql/timestamp.test
+# description: protobuf Timestamp JSON mapping tests
+# group: [protoduck]
+
+require protoduck
+
+statement ok
+SELECT proto_schema_add('
+    syntax = "proto3";
+    package timestamp_test;
+    import "google/protobuf/timestamp.proto";
+    message Event {
+        string name = 1;
+        google.protobuf.Timestamp created_at = 2;
+    }
+');
+
+query T
+SELECT proto_to_json(
+    proto_from_json(
+        '{"name":"launch","created_at":"2025-06-15T10:30:00.123Z"}',
+        'timestamp_test.Event'
+    ),
+    'timestamp_test.Event'
+) = '{"created_at":"2025-06-15T10:30:00.123Z","name":"launch"}';
+----
+true
+
+query T
+SELECT proto_to_json(
+    proto_from_json(
+        '{"name":"offset","created_at":"2025-06-15T16:00:00+05:30"}',
+        'timestamp_test.Event'
+    ),
+    'timestamp_test.Event'
+) = '{"created_at":"2025-06-15T10:30:00Z","name":"offset"}';
+----
+true
+
+query T
+SELECT proto_to_json(
+    proto_from_json(
+        '{"created_at":"2025-06-15T10:30:00.123456789Z"}',
+        'timestamp_test.Event'
+    ),
+    'timestamp_test.Event'
+) = '{"created_at":"2025-06-15T10:30:00.123456789Z"}';
+----
+true
+
+statement error
+SELECT proto_from_json(
+    '{"created_at":"not-a-timestamp"}',
+    'timestamp_test.Event'
+);
+----
+Invalid Input Error: Invalid value for field 'created_at': expected RFC3339 timestamp string, got string
