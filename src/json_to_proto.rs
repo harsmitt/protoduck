@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use base64::Engine;
+use chrono::DateTime;
 use prost::Message;
 use prost_reflect::{DynamicMessage, FieldDescriptor, Kind, MapKey, Value};
 use serde_json::Value as JsonValue;
@@ -12,9 +13,6 @@ use crate::error::{ProtoDuckError, Result};
 
 /// Convert JSON into a serialized protobuf message using a descriptor loaded in
 /// the ProtoDuck descriptor pool.
-///
-/// The JSON representation intentionally mirrors `proto_to_json`, including
-/// enum names and base64 encoded bytes.
 pub fn json_to_proto(
     state: &DescriptorPoolState,
     json: &str,
@@ -158,6 +156,10 @@ fn json_value_to_scalar_value(
             _ => Err(invalid_value(field, "enum name or number", value)),
         },
         Kind::Message(message_descriptor) => {
+            if message_descriptor.full_name() == "google.protobuf.Timestamp" {
+                return json_timestamp_to_value(value, field, message_descriptor);
+            }
+
             let object = value
                 .as_object()
                 .ok_or_else(|| invalid_value(field, "object", value))?;
@@ -177,6 +179,36 @@ fn json_value_to_scalar_value(
             Ok(Value::Message(message))
         }
     }
+}
+
+fn json_timestamp_to_value(
+    value: &JsonValue,
+    field: &FieldDescriptor,
+    descriptor: prost_reflect::MessageDescriptor,
+) -> Result<Value> {
+    let text = value
+        .as_str()
+        .ok_or_else(|| invalid_value(field, "RFC3339 timestamp string", value))?;
+    let parsed = DateTime::parse_from_rfc3339(text).map_err(|_| invalid_value(
+        field,
+        "RFC3339 timestamp string",
+        value,
+    ))?;
+
+    let seconds_field = descriptor
+        .get_field_by_name("seconds")
+        .ok_or_else(|| invalid_value(field, "valid google.protobuf.Timestamp", value))?;
+    let nanos_field = descriptor
+        .get_field_by_name("nanos")
+        .ok_or_else(|| invalid_value(field, "valid google.protobuf.Timestamp", value))?;
+
+    let mut message = DynamicMessage::new(descriptor);
+    message.set_field(&seconds_field, Value::I64(parsed.timestamp()));
+    message.set_field(
+        &nanos_field,
+        Value::I32(parsed.timestamp_subsec_nanos() as i32),
+    );
+    Ok(Value::Message(message))
 }
 
 fn json_string_to_map_key(key: &str, field: &FieldDescriptor) -> Result<MapKey> {
