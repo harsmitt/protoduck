@@ -20,7 +20,11 @@ pub enum ProtoDuckError {
     #[error("Failed to deserialize JSON: {0}")]
     JsonDeserializeError(String),
     #[error("Invalid value for field '{field}': expected {expected}, got {actual}")]
-    InvalidFieldValue { field: String, expected: String, actual: String },
+    InvalidFieldValue {
+        field: String,
+        expected: String,
+        actual: String,
+    },
     #[error("Index {0} out of bounds for repeated field '{1}' (length: {2})")]
     IndexOutOfBounds(usize, String, usize),
     #[error("Cannot use array index on non-repeated field '{0}'")]
@@ -30,15 +34,21 @@ pub enum ProtoDuckError {
 }
 
 impl From<prost::DecodeError> for ProtoDuckError {
-    fn from(err: prost::DecodeError) -> Self { ProtoDuckError::DecodeError(err.to_string()) }
+    fn from(err: prost::DecodeError) -> Self {
+        ProtoDuckError::DecodeError(err.to_string())
+    }
 }
 
 impl From<prost_reflect::DescriptorError> for ProtoDuckError {
-    fn from(err: prost_reflect::DescriptorError) -> Self { ProtoDuckError::SchemaParseError(err.to_string()) }
+    fn from(err: prost_reflect::DescriptorError) -> Self {
+        ProtoDuckError::SchemaParseError(err.to_string())
+    }
 }
 
 impl From<serde_json::Error> for ProtoDuckError {
-    fn from(err: serde_json::Error) -> Self { ProtoDuckError::JsonSerializeError(err.to_string()) }
+    fn from(err: serde_json::Error) -> Self {
+        ProtoDuckError::JsonSerializeError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, ProtoDuckError>;

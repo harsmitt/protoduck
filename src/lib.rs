@@ -32,19 +32,42 @@ struct ProtoSchemaAdd;
 impl VArrowScalar for ProtoSchemaAdd {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let content_col = input.column(0).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for proto content")?;
-        let results: Vec<Option<String>> = content_col.iter().map(|content| -> Result<Option<String>, crate::error::ProtoDuckError> {
-            match content {
-                Some(proto_content) => add_schema_from_proto(state, proto_content).map(|types| Some(format!("Loaded {} message type(s): {}", types.len(), types.join(", ")))),
-                None => Ok(None),
-            }
-        }).collect::<Result<Vec<_>, _>>()?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let content_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for proto content")?;
+        let results: Vec<Option<String>> = content_col
+            .iter()
+            .map(
+                |content| -> Result<Option<String>, crate::error::ProtoDuckError> {
+                    match content {
+                        Some(proto_content) => {
+                            add_schema_from_proto(state, proto_content).map(|types| {
+                                Some(format!(
+                                    "Loaded {} message type(s): {}",
+                                    types.len(),
+                                    types.join(", ")
+                                ))
+                            })
+                        }
+                        None => Ok(None),
+                    }
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Arc::new(StringArray::from(results)))
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Utf8], DataType::Utf8)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Utf8],
+            DataType::Utf8,
+        )]
     }
 }
 
@@ -57,19 +80,40 @@ struct ProtoSchemaAddBinary;
 impl VArrowScalar for ProtoSchemaAddBinary {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let blob_col = input.column(0).as_any().downcast_ref::<BinaryArray>().ok_or("Expected binary array for descriptor set")?;
-        let results: Vec<Option<String>> = blob_col.iter().map(|blob| -> Result<Option<String>, crate::error::ProtoDuckError> {
-            match blob {
-                Some(data) => add_schema_from_binary(state, data).map(|types| Some(format!("Loaded {} message type(s): {}", types.len(), types.join(", ")))),
-                None => Ok(None),
-            }
-        }).collect::<Result<Vec<_>, _>>()?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let blob_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .ok_or("Expected binary array for descriptor set")?;
+        let results: Vec<Option<String>> = blob_col
+            .iter()
+            .map(
+                |blob| -> Result<Option<String>, crate::error::ProtoDuckError> {
+                    match blob {
+                        Some(data) => add_schema_from_binary(state, data).map(|types| {
+                            Some(format!(
+                                "Loaded {} message type(s): {}",
+                                types.len(),
+                                types.join(", ")
+                            ))
+                        }),
+                        None => Ok(None),
+                    }
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Arc::new(StringArray::from(results)))
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Binary], DataType::Utf8)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Binary],
+            DataType::Utf8,
+        )]
     }
 }
 
@@ -82,19 +126,34 @@ struct ProtoDescribe;
 impl VArrowScalar for ProtoDescribe {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let type_col = input.column(0).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for message type")?;
-        let results: Vec<Option<String>> = type_col.iter().map(|message_type| -> Result<Option<String>, crate::error::ProtoDuckError> {
-            match message_type {
-                Some(mt) => describe_message_type(state, mt).map(Some),
-                None => Ok(None),
-            }
-        }).collect::<Result<Vec<_>, _>>()?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let type_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for message type")?;
+        let results: Vec<Option<String>> = type_col
+            .iter()
+            .map(
+                |message_type| -> Result<Option<String>, crate::error::ProtoDuckError> {
+                    match message_type {
+                        Some(mt) => describe_message_type(state, mt).map(Some),
+                        None => Ok(None),
+                    }
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Arc::new(StringArray::from(results)))
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Utf8], DataType::Utf8)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Utf8],
+            DataType::Utf8,
+        )]
     }
 }
 
@@ -107,20 +166,46 @@ struct ProtoToJson;
 impl VArrowScalar for ProtoToJson {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let blob_col = input.column(0).as_any().downcast_ref::<BinaryArray>().ok_or("Expected binary array for protobuf data")?;
-        let type_col = input.column(1).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for message type")?;
-        let results: Vec<Option<String>> = blob_col.iter().zip(type_col.iter()).map(|(blob, message_type)| -> Result<Option<String>, crate::error::ProtoDuckError> {
-            match (blob, message_type) {
-                (Some(data), Some(mt)) => decode_message(state, data, mt).and_then(|msg| message_to_json(&msg)).and_then(|json| serde_json::to_string(&json).map_err(crate::error::ProtoDuckError::from)).map(Some),
-                _ => Ok(None),
-            }
-        }).collect::<Result<Vec<_>, _>>()?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let blob_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .ok_or("Expected binary array for protobuf data")?;
+        let type_col = input
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for message type")?;
+        let results: Vec<Option<String>> = blob_col
+            .iter()
+            .zip(type_col.iter())
+            .map(
+                |(blob, message_type)| -> Result<Option<String>, crate::error::ProtoDuckError> {
+                    match (blob, message_type) {
+                        (Some(data), Some(mt)) => decode_message(state, data, mt)
+                            .and_then(|msg| message_to_json(&msg))
+                            .and_then(|json| {
+                                serde_json::to_string(&json)
+                                    .map_err(crate::error::ProtoDuckError::from)
+                            })
+                            .map(Some),
+                        _ => Ok(None),
+                    }
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Arc::new(StringArray::from(results)))
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Binary, DataType::Utf8], DataType::Utf8)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Binary, DataType::Utf8],
+            DataType::Utf8,
+        )]
     }
 }
 
@@ -133,22 +218,42 @@ struct JsonToProto;
 impl VArrowScalar for JsonToProto {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let json_col = input.column(0).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for JSON")?;
-        let type_col = input.column(1).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for message type")?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let json_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for JSON")?;
+        let type_col = input
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for message type")?;
 
-        let results: Vec<Option<Vec<u8>>> = json_col.iter().zip(type_col.iter()).map(|(json, message_type)| -> Result<Option<Vec<u8>>, crate::error::ProtoDuckError> {
-            match (json, message_type) {
-                (Some(json), Some(mt)) => json_to_proto(state, json, mt).map(Some),
-                _ => Ok(None),
-            }
-        }).collect::<Result<Vec<_>, _>>()?;
+        let results: Vec<Option<Vec<u8>>> = json_col
+            .iter()
+            .zip(type_col.iter())
+            .map(
+                |(json, message_type)| -> Result<Option<Vec<u8>>, crate::error::ProtoDuckError> {
+                    match (json, message_type) {
+                        (Some(json), Some(mt)) => json_to_proto(state, json, mt).map(Some),
+                        _ => Ok(None),
+                    }
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Arc::new(BinaryArray::from(results)))
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Utf8, DataType::Utf8], DataType::Binary)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Utf8, DataType::Utf8],
+            DataType::Binary,
+        )]
     }
 }
 
@@ -161,10 +266,25 @@ struct ProtoGet;
 impl VArrowScalar for ProtoGet {
     type State = DescriptorPoolState;
 
-    fn invoke(state: &Self::State, input: RecordBatch) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
-        let blob_col = input.column(0).as_any().downcast_ref::<BinaryArray>().ok_or("Expected binary array for protobuf data")?;
-        let type_col = input.column(1).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for message type")?;
-        let path_col = input.column(2).as_any().downcast_ref::<StringArray>().ok_or("Expected string array for field path")?;
+    fn invoke(
+        state: &Self::State,
+        input: RecordBatch,
+    ) -> Result<Arc<dyn Array>, Box<dyn std::error::Error>> {
+        let blob_col = input
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .ok_or("Expected binary array for protobuf data")?;
+        let type_col = input
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for message type")?;
+        let path_col = input
+            .column(2)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or("Expected string array for field path")?;
         let results: Vec<Option<String>> = blob_col.iter().zip(type_col.iter()).zip(path_col.iter()).map(|((blob, message_type), field_path)| -> Result<Option<String>, crate::error::ProtoDuckError> {
             match (blob, message_type, field_path) {
                 (Some(data), Some(mt), Some(path)) => decode_message(state, data, mt).and_then(|msg| extract_field_value(&msg, path)).map(Some),
@@ -175,7 +295,10 @@ impl VArrowScalar for ProtoGet {
     }
 
     fn signatures() -> Vec<ArrowFunctionSignature> {
-        vec![ArrowFunctionSignature::exact(vec![DataType::Binary, DataType::Utf8, DataType::Utf8], DataType::Utf8)]
+        vec![ArrowFunctionSignature::exact(
+            vec![DataType::Binary, DataType::Utf8, DataType::Utf8],
+            DataType::Utf8,
+        )]
     }
 }
 
@@ -187,8 +310,14 @@ impl VArrowScalar for ProtoGet {
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn std::error::Error>> {
     let descriptor_state = DescriptorPoolState::default();
 
-    con.register_scalar_function_with_state::<ProtoSchemaAdd>("proto_schema_add", &descriptor_state)?;
-    con.register_scalar_function_with_state::<ProtoSchemaAddBinary>("proto_schema_add_binary", &descriptor_state)?;
+    con.register_scalar_function_with_state::<ProtoSchemaAdd>(
+        "proto_schema_add",
+        &descriptor_state,
+    )?;
+    con.register_scalar_function_with_state::<ProtoSchemaAddBinary>(
+        "proto_schema_add_binary",
+        &descriptor_state,
+    )?;
     con.register_scalar_function_with_state::<ProtoDescribe>("proto_describe", &descriptor_state)?;
     con.register_scalar_function_with_state::<ProtoToJson>("proto_to_json", &descriptor_state)?;
     con.register_scalar_function_with_state::<ProtoToJson>("proto_decode", &descriptor_state)?;
