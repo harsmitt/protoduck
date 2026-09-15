@@ -161,6 +161,41 @@ SELECT proto_to_json(
 ----
 true
 
+# google.protobuf.Timestamp uses canonical ProtoJSON RFC 3339 strings.
+statement ok
+SELECT proto_schema_add('
+    syntax = "proto3";
+    package timestamp_test;
+    import "google/protobuf/timestamp.proto";
+    message Event { google.protobuf.Timestamp created_at = 1; }
+');
+
+query T
+SELECT proto_to_json(
+    proto_from_json('{"created_at":"2025-06-15T10:30:00.123Z"}', 'timestamp_test.Event'),
+    'timestamp_test.Event'
+) = '{"created_at":"2025-06-15T10:30:00.123Z"}';
+----
+true
+
+query T
+SELECT proto_to_json(
+    proto_from_json('{"created_at":"2025-06-15T10:30:00+05:30"}', 'timestamp_test.Event'),
+    'timestamp_test.Event'
+) = '{"created_at":"2025-06-15T05:00:00Z"}';
+----
+true
+
+query T
+SELECT proto_from_json('{"created_at":"1970-01-01T00:00:00Z"}', 'timestamp_test.Event') IS NOT NULL;
+----
+true
+
+statement error
+SELECT proto_from_json('{"created_at":"not-a-timestamp"}', 'timestamp_test.Event');
+----
+Failed to deserialize JSON: Invalid Timestamp:
+
 query T
 SELECT proto_get(NULL::BLOB, 'demo.Person', 'name') IS NULL;
 ----
