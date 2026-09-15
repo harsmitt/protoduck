@@ -44,7 +44,7 @@ SELECT proto_to_json(
         'timestamp_test.Event'
     ),
     'timestamp_test.Event'
-) = '{"created_at":"2025-06-15T10:30:00.123456789Z","name":""}';
+) = '{"created_at":"2025-06-15T10:30:00.123456789Z"}';
 ----
 true
 
