@@ -8,12 +8,14 @@ on:
 
 jobs:
   build:
-    name: Build on Ubuntu
+    name: Build and test on Ubuntu
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -23,3 +25,9 @@ jobs:
 
       - name: Build Protoduck
         run: cargo build --release
+
+      - name: Set DuckDB target version for test harness
+        run: sed -i 's/TARGET_DUCKDB_VERSION=v1.5.4/TARGET_DUCKDB_VERSION=v1.5.5/' Makefile
+
+      - name: Run SQL tests
+        run: make test_release
