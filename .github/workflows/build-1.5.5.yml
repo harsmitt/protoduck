@@ -26,8 +26,8 @@ jobs:
       - name: Build Protoduck
         run: cargo build --release
 
-      - name: Set DuckDB target version for test harness
-        run: sed -i 's/TARGET_DUCKDB_VERSION=v1.5.4/TARGET_DUCKDB_VERSION=v1.5.5/' Makefile
+      - name: Configure SQL test runner
+        run: sed -i 's/TARGET_DUCKDB_VERSION=v1.5.4/TARGET_DUCKDB_VERSION=v1.5.5/' Makefile && DUCKDB_TEST_VERSION=1.5.5 make configure
 
       - name: Run SQL tests
         run: make test_release
