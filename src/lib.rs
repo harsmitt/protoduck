@@ -39,7 +39,7 @@ impl VArrowScalar for ProtoSchemaAdd {
         let results: Vec<Option<String>> = col
             .iter()
             .map(|value| match value {
-                Some(proto) => add_schema_from_proto(state, proto).map(Some),
+                Some(proto) => add_schema_from_proto(state, proto).map(|names| Some(names.join(","))),
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -73,7 +73,7 @@ impl VArrowScalar for ProtoSchemaAddBinary {
         let results: Vec<Option<String>> = col
             .iter()
             .map(|value| match value {
-                Some(bytes) => add_schema_from_binary(state, bytes).map(Some),
+                Some(bytes) => add_schema_from_binary(state, bytes).map(|names| Some(names.join(","))),
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -283,7 +283,7 @@ impl VArrowScalar for ProtoGet {
 
 #[duckdb_entrypoint_c_api]
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), duckdb::Error> {
-    let descriptor_state = DescriptorPoolState::new();
+    let descriptor_state: DescriptorPoolState = Arc::new(Default::default());
 
     con.register_scalar_function_with_state::<ProtoSchemaAdd>("proto_schema_add", &descriptor_state)?;
     con.register_scalar_function_with_state::<ProtoSchemaAddBinary>(
