@@ -71,15 +71,15 @@ SELECT proto_decode('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person') LIKE '%"age":%
 true
 
 # JSON -> protobuf returns the protobuf wire bytes as a DuckDB BLOB.
-query I
+query T
 SELECT proto_to_json(
     proto_from_json(
         '{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}',
         'demo.Person'
     ), 'demo.Person'
-);
+) = '{"address":{"city":"Bengaluru","country":"India"},"age":30,"attributes":{"source":"test"},"name":"Alice","status":"ACTIVE","tags":["one","two"]}';
 ----
-{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}
+true
 
 query T
 SELECT json_to_proto('{"name":"Bob","age":41}', 'demo.Person') IS NOT NULL;
@@ -157,7 +157,7 @@ query T
 SELECT proto_to_json(
     proto_from_json('{"data":"SGVsbG8=","numbers":[1,2,3],"kind":1}', 'advanced.Payload'),
     'advanced.Payload'
-) = '{"data":"SGVsbG8=","numbers":[1,2,3],"kind":"ONE"}';
+) = '{"data":"SGVsbG8=","kind":"ONE","numbers":[1,2,3]}';
 ----
 true
 
