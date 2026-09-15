@@ -2,16 +2,13 @@
 # description: smoke tests for protoduck scalar functions
 # group: [protoduck]
 
-# Before the extension is loaded, our functions do not exist.
 statement error
 SELECT proto_schema_add('syntax = "proto3"; message M { string s = 1; }');
 ----
 Catalog Error: Scalar Function with name proto_schema_add does not exist!
 
-# Load the extension for the remainder of the file.
 require protoduck
 
-# Register a schema with a handful of types we care about.
 statement ok
 SELECT proto_schema_add('
     syntax = "proto3";
@@ -20,7 +17,7 @@ SELECT proto_schema_add('
     message Address { string city = 1; string country = 2; }
     message Person {
         string name = 1;
-        int32  age  = 2;
+        int32 age = 2;
         Status status = 3;
         Address address = 4;
         repeated string tags = 5;
@@ -28,7 +25,6 @@ SELECT proto_schema_add('
     }
 ');
 
-# proto_describe should return a non-empty description for a known type.
 query I
 SELECT length(proto_describe('demo.Person')) > 0;
 ----
@@ -54,68 +50,77 @@ SELECT proto_schema_add('syntax = "proto3"; message Broken {');
 ----
 Failed to parse proto schema:
 
-# Encoded payload for demo.Person { name: "Alice", age: 30 }.
-# Field 1 (string, tag 0x0a), length 5, "Alice"; Field 2 (varint, tag 0x10), value 30.
 query T
-SELECT proto_get(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Person',
-    'name'
-);
+SELECT proto_get('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person', 'name');
 ----
 Alice
 
 query T
-SELECT proto_get(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Person',
-    'age'
-);
+SELECT proto_get('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person', 'age');
 ----
 30
 
-# proto_to_json should round-trip the same payload into JSON.
+query T
+SELECT proto_to_json('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person') LIKE '%"name":%Alice%';
+----
+true
+
+query T
+SELECT proto_decode('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person') LIKE '%"age":%30%';
+----
+true
+
+# JSON -> protobuf returns the protobuf wire bytes as a DuckDB BLOB.
 query T
 SELECT proto_to_json(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Person'
-) LIKE '%"name":%Alice%';
+    proto_from_json(
+        '{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}',
+        'demo.Person'
+    ), 'demo.Person'
+) = '{"name":"Alice","age":30,"status":"ACTIVE","address":{"city":"Bengaluru","country":"India"},"tags":["one","two"],"attributes":{"source":"test"}}';
 ----
 true
 
-# proto_decode is a documented alias of proto_to_json.
 query T
-SELECT proto_decode(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Person'
-) LIKE '%"age":%30%';
+SELECT json_to_proto('{"name":"Bob","age":41}', 'demo.Person') IS NOT NULL;
 ----
 true
 
-# NULL inputs remain NULL, but non-NULL decode/path failures should surface as errors.
 query T
-SELECT proto_get(NULL::BLOB, 'demo.Person', 'name') IS NULL;
+SELECT proto_from_json(NULL, 'demo.Person') IS NULL;
+----
+true
+
+query T
+SELECT proto_from_json('{"name":"Bob"}', NULL) IS NULL;
 ----
 true
 
 statement error
-SELECT proto_get(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Person',
-    'missing_field'
-);
+SELECT proto_from_json('{bad json}', 'demo.Person');
 ----
-Field 'missing_field' not found in message type 'demo.Person'
+Failed to deserialize JSON: Invalid JSON:
 
 statement error
-SELECT proto_to_json(
-    '\x0a\x05Alice\x10\x1e'::BLOB,
-    'demo.Missing'
-);
+SELECT proto_from_json('{"unknown":1}', 'demo.Person');
 ----
-Message type 'demo.Missing' not found. Did you load the schema with proto_schema_add()?
+Field 'unknown' not found in message type 'demo.Person'
 
-# Numeric map keys should use the map's declared key type, not a guessed type.
+statement error
+SELECT proto_from_json('{"age":"not-a-number"}', 'demo.Person');
+----
+Invalid value for field 'age': expected integer or integer string, got string
+
+statement error
+SELECT proto_from_json('{"status":"MISSING"}', 'demo.Person');
+----
+Invalid value for field 'status': expected enum demo.Status name, got MISSING
+
+statement error
+SELECT proto_from_json('{"name":1}', 'demo.Person');
+----
+Invalid value for field 'name': expected string, got number
+
 statement ok
 SELECT proto_schema_add('
     syntax = "proto3";
@@ -126,19 +131,47 @@ SELECT proto_schema_add('
     }
 ');
 
-# signed_values { key: 1, value: "signed" }
-# unsigned_values { key: 1, value: "unsigned" }
-query TT
-SELECT
-    proto_get(
-        '\x0a\x0a\x08\x01\x12\x06signed\x12\x0c\x08\x01\x12\x08unsigned'::BLOB,
-        'maptest.NumericMaps',
-        'signed_values[1]'
-    ),
-    proto_get(
-        '\x0a\x0a\x08\x01\x12\x06signed\x12\x0c\x08\x01\x12\x08unsigned'::BLOB,
-        'maptest.NumericMaps',
-        'unsigned_values[1]'
-    );
+query T
+SELECT proto_to_json(
+    proto_from_json(
+        '{"signed_values":{"-1":"negative","42":"signed"},"unsigned_values":{"1":"unsigned"}}',
+        'maptest.NumericMaps'
+    ), 'maptest.NumericMaps'
+) = '{"signed_values":{"-1":"negative","42":"signed"},"unsigned_values":{"1":"unsigned"}}';
 ----
-signed	unsigned
+true
+
+statement ok
+SELECT proto_schema_add('
+    syntax = "proto3";
+    package advanced;
+    enum Kind { ZERO = 0; ONE = 1; }
+    message Payload {
+        bytes data = 1;
+        repeated int32 numbers = 2;
+        Kind kind = 3;
+    }
+');
+
+query T
+SELECT proto_to_json(
+    proto_from_json('{"data":"SGVsbG8=","numbers":[1,2,3],"kind":1}', 'advanced.Payload'),
+    'advanced.Payload'
+) = '{"data":"SGVsbG8=","numbers":[1,2,3],"kind":"ONE"}';
+----
+true
+
+query T
+SELECT proto_get(NULL::BLOB, 'demo.Person', 'name') IS NULL;
+----
+true
+
+statement error
+SELECT proto_get('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Person', 'missing_field');
+----
+Field 'missing_field' not found in message type 'demo.Person'
+
+statement error
+SELECT proto_to_json('\x0a\x05Alice\x10\x1e'::BLOB, 'demo.Missing');
+----
+Message type 'demo.Missing' not found. Did you load the schema with proto_schema_add()?
