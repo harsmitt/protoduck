@@ -189,11 +189,8 @@ fn json_timestamp_to_value(
     let text = value
         .as_str()
         .ok_or_else(|| invalid_value(field, "RFC3339 timestamp string", value))?;
-    let parsed = DateTime::parse_from_rfc3339(text).map_err(|_| invalid_value(
-        field,
-        "RFC3339 timestamp string",
-        value,
-    ))?;
+    let parsed = DateTime::parse_from_rfc3339(text)
+        .map_err(|_| invalid_value(field, "RFC3339 timestamp string", value))?;
 
     let seconds_field = descriptor
         .get_field_by_name("seconds")
