@@ -39,7 +39,9 @@ impl VArrowScalar for ProtoSchemaAdd {
         let results: Vec<Option<String>> = col
             .iter()
             .map(|value| match value {
-                Some(proto) => add_schema_from_proto(state, proto).map(|names| Some(names.join(","))),
+                Some(proto) => {
+                    add_schema_from_proto(state, proto).map(|names| Some(names.join(",")))
+                }
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -73,7 +75,9 @@ impl VArrowScalar for ProtoSchemaAddBinary {
         let results: Vec<Option<String>> = col
             .iter()
             .map(|value| match value {
-                Some(bytes) => add_schema_from_binary(state, bytes).map(|names| Some(names.join(","))),
+                Some(bytes) => {
+                    add_schema_from_binary(state, bytes).map(|names| Some(names.join(",")))
+                }
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -259,14 +263,12 @@ impl VArrowScalar for ProtoGet {
             .iter()
             .zip(type_col.iter())
             .zip(path_col.iter())
-            .map(|((data, message_type), path)| {
-                match (data, message_type, path) {
-                    (Some(data), Some(mt), Some(path)) => {
-                        let message = decode_message(state, data, mt)?;
-                        Ok(Some(extract_field_value(&message, path)?))
-                    }
-                    _ => Ok(None),
+            .map(|((data, message_type), path)| match (data, message_type, path) {
+                (Some(data), Some(mt), Some(path)) => {
+                    let message = decode_message(state, data, mt)?;
+                    Ok(Some(extract_field_value(&message, path)?))
                 }
+                _ => Ok(None),
             })
             .collect::<Result<Vec<_>, crate::error::ProtoDuckError>>()?;
 
@@ -285,16 +287,28 @@ impl VArrowScalar for ProtoGet {
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), duckdb::Error> {
     let descriptor_state: DescriptorPoolState = Arc::new(Default::default());
 
-    con.register_scalar_function_with_state::<ProtoSchemaAdd>("proto_schema_add", &descriptor_state)?;
+    con.register_scalar_function_with_state::<ProtoSchemaAdd>(
+        "proto_schema_add",
+        &descriptor_state,
+    )?;
     con.register_scalar_function_with_state::<ProtoSchemaAddBinary>(
         "proto_schema_add_binary",
         &descriptor_state,
     )?;
-    con.register_scalar_function_with_state::<ProtoDescribe>("proto_describe", &descriptor_state)?;
+    con.register_scalar_function_with_state::<ProtoDescribe>(
+        "proto_describe",
+        &descriptor_state,
+    )?;
     con.register_scalar_function_with_state::<ProtoToJson>("proto_to_json", &descriptor_state)?;
     con.register_scalar_function_with_state::<ProtoToJson>("proto_decode", &descriptor_state)?;
-    con.register_scalar_function_with_state::<ProtoFromJson>("proto_from_json", &descriptor_state)?;
-    con.register_scalar_function_with_state::<ProtoFromJson>("json_to_proto", &descriptor_state)?;
+    con.register_scalar_function_with_state::<ProtoFromJson>(
+        "proto_from_json",
+        &descriptor_state,
+    )?;
+    con.register_scalar_function_with_state::<ProtoFromJson>(
+        "json_to_proto",
+        &descriptor_state,
+    )?;
     con.register_scalar_function_with_state::<ProtoGet>("proto_get", &descriptor_state)?;
 
     Ok(())
