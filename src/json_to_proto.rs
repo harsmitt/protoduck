@@ -1,6 +1,6 @@
 //! JSON to Protocol Buffer conversion using the runtime descriptor pool.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use base64::Engine;
 use prost::Message;
@@ -74,7 +74,7 @@ fn json_value_to_field_value(value: &JsonValue, field: &FieldDescriptor) -> Resu
         };
         let key_field = entry.map_entry_key_field();
         let value_field = entry.map_entry_value_field();
-        let mut map = BTreeMap::new();
+        let mut map = HashMap::new();
 
         for (key, json_value) in object {
             let map_key = json_string_to_map_key(key, &key_field)?;
