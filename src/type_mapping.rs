@@ -36,8 +36,7 @@ fn value_to_json(value: &Value, field: &FieldDescriptor) -> Result<JsonValue> {
         Value::U32(v) => Ok(JsonValue::Number((*v).into())),
         Value::U64(v) => Ok(JsonValue::Number((*v).into())),
         Value::F32(v) => Ok(JsonValue::Number(
-            serde_json::Number::from_f64(*v as f64)
-                .unwrap_or_else(|| serde_json::Number::from(0)),
+            serde_json::Number::from_f64(*v as f64).unwrap_or_else(|| serde_json::Number::from(0)),
         )),
         Value::F64(v) => Ok(JsonValue::Number(
             serde_json::Number::from_f64(*v).unwrap_or_else(|| serde_json::Number::from(0)),
@@ -86,13 +85,14 @@ fn timestamp_to_json(message: &DynamicMessage) -> Result<JsonValue> {
             actual: "missing".to_string(),
         }
     })?;
-    let nanos_field = descriptor
-        .get_field_by_name("nanos")
-        .ok_or_else(|| ProtoDuckError::InvalidFieldValue {
-            field: "nanos".to_string(),
-            expected: "Timestamp nanos field".to_string(),
-            actual: "missing".to_string(),
-        })?;
+    let nanos_field =
+        descriptor
+            .get_field_by_name("nanos")
+            .ok_or_else(|| ProtoDuckError::InvalidFieldValue {
+                field: "nanos".to_string(),
+                expected: "Timestamp nanos field".to_string(),
+                actual: "missing".to_string(),
+            })?;
     let seconds = match message.get_field(&seconds_field).into_owned() {
         Value::I64(v) => v,
         _ => {
