@@ -54,4 +54,4 @@ SELECT proto_from_json(
     'timestamp_test.Event'
 );
 ----
-Invalid field value for 'created_at': expected RFC3339 timestamp string, got string
+Invalid Input Error: Invalid value for field 'created_at': expected RFC3339 timestamp string, got string
